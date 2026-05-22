@@ -1,6 +1,6 @@
 import Flutter
 import Foundation
-import LinkzlySDK
+import Linkzly
 import StoreKit
 import UIKit
 
@@ -235,57 +235,19 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLifeC
             }
 
         case "debugSetBatchingStrategy":
-            #if DEBUG
-            LinkzlySDKDebug.setBatchingStrategy(requiredString(args, "strategy"))
-            result(successMap())
-            #else
-            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds", details: nil))
-            #endif
+            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds of LinkzlySDK", details: nil))
 
         case "debugSetBatchSize":
-            #if DEBUG
-            LinkzlySDKDebug.setBatchSize(requiredInt(args, "size"))
-            result(successMap())
-            #else
-            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds", details: nil))
-            #endif
+            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds of LinkzlySDK", details: nil))
 
         case "debugSetFlushInterval":
-            #if DEBUG
-            LinkzlySDKDebug.setFlushInterval(args["interval"] as? Double ?? 0)
-            result(successMap())
-            #else
-            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds", details: nil))
-            #endif
+            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds of LinkzlySDK", details: nil))
 
         case "debugResetConfig":
-            #if DEBUG
-            LinkzlySDKDebug.resetDebugConfig()
-            result(successMap())
-            #else
-            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds", details: nil))
-            #endif
+            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds of LinkzlySDK", details: nil))
 
         case "debugGetConfig":
-            #if DEBUG
-            var config: [String: Any] = [:]
-            if let strategy = UserDefaults.standard.string(forKey: "linkzly_debug_batching_strategy") {
-                config["strategy"] = strategy
-            }
-            if let batchSize = UserDefaults.standard.object(forKey: "linkzly_debug_batch_size") as? Int {
-                config["batchSize"] = batchSize
-            }
-            if let flushInterval = UserDefaults.standard.object(forKey: "linkzly_debug_flush_interval") as? Double {
-                config["flushInterval"] = flushInterval
-            }
-            if config.isEmpty {
-                result(nil)
-            } else {
-                result(config)
-            }
-            #else
-            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds", details: nil))
-            #endif
+            result(FlutterError(code: "DEBUG_ONLY", message: "Debug methods are only available in DEBUG builds of LinkzlySDK", details: nil))
 
         default:
             result(FlutterMethodNotImplemented)
