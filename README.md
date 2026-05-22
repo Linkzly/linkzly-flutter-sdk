@@ -23,14 +23,6 @@ dependencies:
       ref: v0.1.0
 ```
 
-For monorepo / local SDK development, use a `path:` dependency instead:
-
-```yaml
-dependencies:
-  linkzly_flutter_sdk:
-    path: ../3rd-party-sdk/linkzly-flutter-sdk
-```
-
 Then run `flutter pub get`.
 
 ### 2. iOS Setup
@@ -48,12 +40,6 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
-```
-
-For local SDK development, point at the monorepo copy instead:
-
-```ruby
-pod 'LinkzlySDK', :path => '../../../linkzly-ios-sdk'
 ```
 
 Then run:
@@ -154,7 +140,7 @@ allprojects {
 The Flutter plugin already declares the native Android dependency:
 
 ```gradle
-implementation "com.github.linkzly:linkzly-android-sdk:1.0.0"
+implementation "com.github.Linkzly:linkzly-android-sdk:1.0.5"
 ```
 
 #### 3a. Configure Android App Links
