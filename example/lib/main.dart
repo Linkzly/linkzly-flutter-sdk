@@ -9,7 +9,7 @@ import 'package:linkzly_flutter_sdk/linkzly_flutter_sdk.dart';
 /// You can override it at runtime via
 /// `flutter run --dart-define=LINKZLY_SDK_KEY=slk_...`.
 const String _bundledSdkKey =
-    'slk_8876e9b590f0e782169bfa40a9314fa556b17a16664a2816';
+    'LINKZLY_SDK_KEY';
 
 const String _sdkKeyFromDartDefine = String.fromEnvironment('LINKZLY_SDK_KEY');
 const String _sdkKey = _sdkKeyFromDartDefine != ''

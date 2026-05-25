@@ -143,26 +143,40 @@ The Flutter plugin already declares the native Android dependency:
 implementation "com.github.Linkzly:linkzly-android-sdk:1.0.5"
 ```
 
-#### 3a. Configure Android App Links
+#### 3a. Configure Android Manifest Deep Links and App Links
 
-Add an intent filter to the activity that launches your Flutter app, usually `android/app/src/main/AndroidManifest.xml`:
+Add Linkzly deep link intent filters inside the existing Flutter launcher activity in `android/app/src/main/AndroidManifest.xml`.
+Do not create a separate activity for Linkzly links. Keep the standard launcher intent filter, then add:
+- a custom scheme deep link intent filter for URI schemes such as `example://...`
+- an Android App Links intent filter for verified HTTPS links such as `https://example.linkzly.com/...`
 
 ```xml
 <activity
-  android:name=".MainActivity"
-  android:exported="true"
-  android:launchMode="singleTop">
+    android:name=".MainActivity"
+    android:exported="true"
+    android:launchMode="singleTop">
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
 
-  <intent-filter android:autoVerify="true">
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data android:scheme="https" android:host="your-linkzly-domain.example" />
-  </intent-filter>
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="example" />
+    </intent-filter>
+
+    <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="example.linkzly.com" />
+    </intent-filter>
 </activity>
 ```
 
-Replace `your-linkzly-domain.example` with the host you configured in the Linkzly Console for this app.
+For live client apps, replace `example` with the custom URI scheme assigned to the app and replace `example.linkzly.com` with the verified Linkzly domain configured in the Linkzly Console.
 
 Android App Links also require a valid Digital Asset Links file for your app package and signing certificate on that domain.
 
