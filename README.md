@@ -13,7 +13,20 @@ Flutter bridge for Linkzly deep linking, deferred attribution, event tracking, a
 
 ### 1. Add the Flutter package
 
-The Flutter SDK is distributed via GitHub (it is not yet published to pub.dev). Pin to a tag in your app's `pubspec.yaml`:
+The Flutter SDK is published on pub.dev: https://pub.dev/packages/linkzly_flutter_sdk
+
+```bash
+flutter pub add linkzly_flutter_sdk
+```
+
+Or add it manually to your app's `pubspec.yaml` and run `flutter pub get`:
+
+```yaml
+dependencies:
+  linkzly_flutter_sdk: ^0.1.0
+```
+
+#### Alternative: pin to a Git tag
 
 ```yaml
 dependencies:
@@ -22,8 +35,6 @@ dependencies:
       url: https://github.com/linkzly/linkzly-flutter-sdk.git
       ref: v0.1.0
 ```
-
-Then run `flutter pub get`.
 
 ### 2. iOS Setup
 
