@@ -1,6 +1,6 @@
 name: linkzly_flutter_sdk
 description: Flutter SDK for Linkzly deep linking, attribution tracking, and mobile measurement.
-version: 0.1.0
+version: 0.1.3
 homepage: https://linkzly.com
 repository: https://github.com/Linkzly/linkzly-flutter-sdk
 issue_tracker: https://github.com/Linkzly/linkzly-flutter-sdk/issues
