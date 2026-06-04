@@ -4,8 +4,8 @@ Flutter bridge for Linkzly deep linking, deferred attribution, event tracking, a
 
 ## Requirements
 
-- Flutter 3.38+
-- Dart 3.10+
+- Flutter 3.35.6+
+- Dart 3.9+
 - iOS 13+
 - Android API 21+
 
@@ -34,6 +34,14 @@ dependencies:
     git:
       url: https://github.com/linkzly/linkzly-flutter-sdk.git
       ref: v0.1.0
+```
+
+#### Alternative: local monorepo development
+
+```yaml
+dependencies:
+  linkzly_flutter_sdk:
+    path: ../3rd-party-sdk/linkzly-flutter-sdk
 ```
 
 ### 2. iOS Setup

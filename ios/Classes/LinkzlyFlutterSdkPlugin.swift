@@ -4,7 +4,7 @@ import Linkzly
 import StoreKit
 import UIKit
 
-public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLifeCycleDelegate {
+public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
     private let deepLinkEvents = BufferedEventSink()
     private let universalLinkEvents = BufferedEventSink()
 
@@ -31,7 +31,12 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLifeC
         // LinkzlySDK.handleUniversalLink is idempotent, so handling the same
         // URL through both delegates is safe.
         registrar.addApplicationDelegate(instance)
-        registrar.addSceneDelegate(instance)
+        // `addSceneDelegate` exists on newer Flutter engines. Use a selector-based
+        // registration path so this plugin still compiles on older Flutter SDKs.
+        let sceneDelegateSelector = NSSelectorFromString("addSceneDelegate:")
+        if (registrar as AnyObject).responds(to: sceneDelegateSelector) {
+            _ = (registrar as AnyObject).perform(sceneDelegateSelector, with: instance)
+        }
         instance.observeNativeEvents()
     }
 
@@ -272,7 +277,10 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLifeC
 
     // MARK: - FlutterSceneLifeCycleDelegate (Flutter 3.38+)
 
-    public func scene(
+    // `@objc` keeps these visible to the engine's selector-based scene dispatch on
+    // Flutter 3.38+, now that the class no longer conforms to the `@objc`
+    // `FlutterSceneLifeCycleDelegate` protocol (which doesn't exist on Flutter 3.35.6).
+    @objc public func scene(
         _ scene: UIScene,
         openURLContexts URLContexts: Set<UIOpenURLContext>
     ) -> Bool {
@@ -285,7 +293,7 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin, FlutterSceneLifeC
         return handled
     }
 
-    public func scene(_ scene: UIScene, continue userActivity: NSUserActivity) -> Bool {
+    @objc public func scene(_ scene: UIScene, continue userActivity: NSUserActivity) -> Bool {
         return LinkzlySDK.handleUniversalLink(userActivity)
     }
 
