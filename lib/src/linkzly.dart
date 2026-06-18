@@ -41,6 +41,12 @@ class Linkzly {
   ]) =>
       _channel.trackPurchase(parameters);
 
+  /// Track a refund of a prior purchase (pass the original transactionId).
+  Future<bool> trackRefund([
+    Map<String, Object?> parameters = const <String, Object?>{},
+  ]) =>
+      _channel.trackRefund(parameters);
+
   Future<bool> trackEventBatch(List<BatchEvent> events) =>
       _channel.trackEventBatch(events);
 
@@ -51,6 +57,22 @@ class Linkzly {
   Future<void> setUserId(String userId) => _channel.setUserId(userId);
 
   Future<String?> getUserId() => _channel.getUserId();
+
+  /// Register a push notification device token (APNs on iOS, FCM on Android)
+  /// with Linkzly's device registry. Safe to call on every launch — the native
+  /// SDK throttles network calls and only registers when something changed.
+  Future<void> setNotificationToken(String token) =>
+      _channel.setNotificationToken(token);
+
+  /// The currently stored push notification token, if any.
+  Future<String?> getNotificationToken() => _channel.getNotificationToken();
+
+  /// Whether a push notification token is currently stored.
+  Future<bool> hasNotificationToken() => _channel.hasNotificationToken();
+
+  /// Clear the stored push token locally and revoke it server-side
+  /// (e.g. on logout or when notifications are disabled).
+  Future<void> clearNotificationToken() => _channel.clearNotificationToken();
 
   Future<void> setTrackingEnabled(bool enabled) =>
       _channel.setTrackingEnabled(enabled);

@@ -108,6 +108,7 @@ class LinkzlyFlutterPlugin :
                 "trackOpen" -> LinkzlySDK.trackOpen { resolveDeepLink(result, it) }
                 "trackEvent" -> trackEvent(call, result)
                 "trackPurchase" -> trackPurchase(call, result)
+                "trackRefund" -> trackRefund(call, result)
                 "trackEventBatch" -> trackEventBatch(call, result)
                 "flushEvents" -> flushEvents(result)
                 "getPendingEventCount" -> result.success(LinkzlySDK.getPendingEventCount())
@@ -116,6 +117,16 @@ class LinkzlyFlutterPlugin :
                     result.success(successMap())
                 }
                 "getUserID" -> result.success(LinkzlySDK.getUserID())
+                "setNotificationToken" -> {
+                    LinkzlySDK.setNotificationToken(call.requireArgument("token"))
+                    result.success(successMap())
+                }
+                "getNotificationToken" -> result.success(LinkzlySDK.getNotificationToken())
+                "hasNotificationToken" -> result.success(LinkzlySDK.hasNotificationToken())
+                "clearNotificationToken" -> {
+                    LinkzlySDK.clearNotificationToken()
+                    result.success(successMap())
+                }
                 "setTrackingEnabled" -> {
                     LinkzlySDK.setTrackingEnabled(call.requireArgument("enabled"))
                     result.success(successMap())
@@ -226,6 +237,15 @@ class LinkzlyFlutterPlugin :
             response.fold(
                 onSuccess = { result.success(mapOf("success" to it)) },
                 onFailure = { result.error("TRACK_PURCHASE_ERROR", it.message, null) }
+            )
+        }
+    }
+
+    private fun trackRefund(call: MethodCall, result: MethodChannel.Result) {
+        LinkzlySDK.trackRefund(call.mapArgument("parameters")) { response ->
+            response.fold(
+                onSuccess = { result.success(mapOf("success" to it)) },
+                onFailure = { result.error("TRACK_REFUND_ERROR", it.message, null) }
             )
         }
     }

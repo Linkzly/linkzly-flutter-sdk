@@ -88,6 +88,15 @@ class LinkzlyMethodChannel {
     return _success(result);
   }
 
+  Future<bool> trackRefund(Map<String, Object?> parameters) async {
+    final Map<Object?, Object?>? result =
+        await _methodChannel.invokeMapMethod<Object?, Object?>(
+      'trackRefund',
+      <String, Object?>{'parameters': parameters},
+    );
+    return _success(result);
+  }
+
   Future<bool> trackEventBatch(List<BatchEvent> events) async {
     final Map<Object?, Object?>? result =
         await _methodChannel.invokeMapMethod<Object?, Object?>(
@@ -122,6 +131,25 @@ class LinkzlyMethodChannel {
   Future<String?> getUserId() => _methodChannel.invokeMethod<String>(
         'getUserID',
       );
+
+  Future<void> setNotificationToken(String token) async {
+    await _methodChannel.invokeMapMethod<String, Object?>(
+      'setNotificationToken',
+      <String, Object?>{'token': token},
+    );
+  }
+
+  Future<String?> getNotificationToken() =>
+      _methodChannel.invokeMethod<String>('getNotificationToken');
+
+  Future<bool> hasNotificationToken() async =>
+      await _methodChannel.invokeMethod<bool>('hasNotificationToken') ?? false;
+
+  Future<void> clearNotificationToken() async {
+    await _methodChannel.invokeMapMethod<String, Object?>(
+      'clearNotificationToken',
+    );
+  }
 
   Future<void> setTrackingEnabled(bool enabled) async {
     await _methodChannel.invokeMapMethod<String, Object?>(

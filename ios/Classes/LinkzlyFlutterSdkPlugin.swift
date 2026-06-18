@@ -84,6 +84,16 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
                 }
             }
 
+        case "trackRefund":
+            LinkzlySDK.trackRefund(parameters: args["parameters"] as? [String: Any] ?? [:]) { response in
+                switch response {
+                case .success:
+                    result(successMap())
+                case .failure(let error):
+                    result(FlutterError(code: "TRACK_REFUND_ERROR", message: error.localizedDescription, details: nil))
+                }
+            }
+
         case "trackEventBatch":
             LinkzlySDK.trackEventBatch(args["events"] as? [[String: Any]] ?? []) { success, error in
                 if success {
@@ -111,6 +121,20 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
 
         case "getUserID":
             result(LinkzlySDK.getUserID())
+
+        case "setNotificationToken":
+            LinkzlySDK.setNotificationToken(requiredString(args, "token"))
+            result(successMap())
+
+        case "getNotificationToken":
+            result(LinkzlySDK.getNotificationToken())
+
+        case "hasNotificationToken":
+            result(LinkzlySDK.hasNotificationToken())
+
+        case "clearNotificationToken":
+            LinkzlySDK.clearNotificationToken()
+            result(successMap())
 
         case "setTrackingEnabled":
             LinkzlySDK.setTrackingEnabled(requiredBool(args, "enabled"))

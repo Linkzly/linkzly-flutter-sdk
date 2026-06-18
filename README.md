@@ -55,7 +55,7 @@ target 'Runner' do
   use_frameworks!
 
   # Required: pin the native LinkzlySDK from GitHub.
-  pod 'LinkzlySDK', :git => 'https://github.com/linkzly/linkzly-ios-sdk.git', :tag => '1.0.0'
+  pod 'LinkzlySDK', :git => 'https://github.com/linkzly/linkzly-ios-sdk.git', :tag => '1.0.5'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
@@ -249,10 +249,54 @@ Your SDK key starts with `slk_` and is shown in the Linkzly Console under **Apps
 - `getIdfa`
 - `setAdvertisingTrackingEnabled`
 - `isAdvertisingTrackingEnabled`
+- `setNotificationToken` / `getNotificationToken` / `hasNotificationToken` / `clearNotificationToken`
 - `initializePush` / `disablePush`
 - affiliate attribution helpers
 - gaming tracking helpers
 - debug batching helpers
+
+## Push Notification Support
+
+The SDK exposes **two independent push features** — most apps that target individual users want the first one:
+
+| Feature | Methods | What it does | When to use |
+|---|---|---|---|
+| **Device token registration** | `setNotificationToken` / `getNotificationToken` / `hasNotificationToken` / `clearNotificationToken` | Registers this device's **APNs/FCM token** in Linkzly's device registry so campaigns can target the specific device/user. Works with **any** push provider. | You want Linkzly to send (or target) notifications to individual devices/users. |
+| **Broadcast topic subscription** | `initializePush` / `disablePush` | Subscribes the device to a shared **FCM broadcast topic** for "send to All" campaigns. FCM-only, via reflection in the native SDK. | You only need broadcast-to-everyone campaigns and use Firebase Cloud Messaging. |
+
+> **Requires native SDK support.** These methods bridge to the native iOS/Android SDKs. They need **iOS `LinkzlySDK ≥ 1.0.3`** (CocoaPods) and **Android `com.github.Linkzly:linkzly-android-sdk ≥ 1.0.5`** (JitPack) — both of which this Flutter plugin already resolves (iOS podspec pins `~> 1.0`, Android pins `1.0.5`). Earlier native versions do not include these methods.
+
+### Registering a device push token
+
+Capture the device push token from your push library (e.g. `firebase_messaging`) and forward it. The native SDK throttles network calls (it only re-registers when the token, user, or app version changes, or after 7 days), so it is safe to call on every launch.
+
+```dart
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+final token = await FirebaseMessaging.instance.getToken();
+if (token != null) {
+  await Linkzly.instance.setNotificationToken(token);
+}
+
+FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+  Linkzly.instance.setNotificationToken(newToken);
+});
+```
+
+**Binding to a user:** when you call `Linkzly.instance.setUserId(...)`, the native SDK automatically re-registers the stored token against the new user id.
+
+**On logout / notifications disabled:** clear the token — this removes it locally and revokes it server-side.
+
+```dart
+await Linkzly.instance.clearNotificationToken();
+```
+
+**Inspecting state:**
+
+```dart
+final token = await Linkzly.instance.getNotificationToken(); // String?
+final has = await Linkzly.instance.hasNotificationToken();   // bool
+```
 
 ## Deep Link Streams
 

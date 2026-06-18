@@ -9,7 +9,7 @@ import 'package:linkzly_flutter_sdk/linkzly_flutter_sdk.dart';
 /// You can override it at runtime via
 /// `flutter run --dart-define=LINKZLY_SDK_KEY=slk_...`.
 const String _bundledSdkKey =
-    'LINKZLY_SDK_KEY';
+    'slk_8876e9b590f0e782169bfa40a9314fa556b17a16664a2816';
 
 const String _sdkKeyFromDartDefine = String.fromEnvironment('LINKZLY_SDK_KEY');
 const String _sdkKey = _sdkKeyFromDartDefine != ''
@@ -85,6 +85,7 @@ class _LinkzlyHomePageState extends State<LinkzlyHomePage> {
   UniversalLinkEvent? _lastUniversalLink;
   String? _visitorId;
   String? _userId;
+  String? _notificationToken;
   bool _trackingEnabled = true;
   int _pendingEventCount = 0;
   AffiliateAttribution? _affiliate;
@@ -204,6 +205,9 @@ class _LinkzlyHomePageState extends State<LinkzlyHomePage> {
     await _runSafely('getUserId', () async {
       final String? id = await Linkzly.instance.getUserId();
       if (mounted) setState(() => _userId = id);
+
+      final String? token = await Linkzly.instance.getNotificationToken();
+      if (mounted) setState(() => _notificationToken = token);
     });
     await _runSafely('isTrackingEnabled', () async {
       final bool enabled = await Linkzly.instance.isTrackingEnabled();
@@ -288,6 +292,28 @@ class _LinkzlyHomePageState extends State<LinkzlyHomePage> {
       final String id = await Linkzly.instance.getVisitorId();
       if (mounted) setState(() => _visitorId = id);
       _showSnack('Visitor id reset');
+    });
+  }
+
+  Future<void> _registerNotificationToken() async {
+    await _runSafely('setNotificationToken', () async {
+      // Real apps pass the APNs/FCM token. Here we simulate one so the registry
+      // call can be exercised without push entitlements / Firebase.
+      final String token =
+          'flutter_test_${DateTime.now().millisecondsSinceEpoch.toRadixString(16)}';
+      await Linkzly.instance.setNotificationToken(token);
+      final String? stored = await Linkzly.instance.getNotificationToken();
+      if (mounted) setState(() => _notificationToken = stored);
+      _showSnack('Notification token registered');
+    });
+  }
+
+  Future<void> _clearNotificationToken() async {
+    await _runSafely('clearNotificationToken', () async {
+      await Linkzly.instance.clearNotificationToken();
+      final String? stored = await Linkzly.instance.getNotificationToken();
+      if (mounted) setState(() => _notificationToken = stored);
+      _showSnack('Notification token cleared');
     });
   }
 
@@ -401,6 +427,39 @@ class _LinkzlyHomePageState extends State<LinkzlyHomePage> {
                         onPressed: _resetVisitorId,
                         icon: const Icon(Icons.restart_alt),
                         label: const Text('Reset visitor'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Push notifications',
+              icon: Icons.notifications_active_outlined,
+              children: <Widget>[
+                _KeyValueRow(
+                  label: 'Device token',
+                  value: _notificationToken ?? '—',
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _registerNotificationToken,
+                        icon: const Icon(Icons.notifications_active),
+                        label: const Text('Register token'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _notificationToken == null
+                            ? null
+                            : _clearNotificationToken,
+                        icon: const Icon(Icons.notifications_off),
+                        label: const Text('Clear token'),
                       ),
                     ),
                   ],

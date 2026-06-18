@@ -3,12 +3,12 @@ PODS:
   - linkzly_flutter_sdk (0.1.0):
     - Flutter
     - LinkzlySDK (~> 1.0)
-  - LinkzlySDK (1.0.4)
+  - LinkzlySDK (1.0.0)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - linkzly_flutter_sdk (from `.symlinks/plugins/linkzly_flutter_sdk/ios`)
-  - LinkzlySDK (from `https://github.com/linkzly/linkzly-ios-sdk.git`, tag `1.0.4`)
+  - LinkzlySDK (from `../../../linkzly-ios-sdk`)
 
 EXTERNAL SOURCES:
   Flutter:
@@ -16,19 +16,13 @@ EXTERNAL SOURCES:
   linkzly_flutter_sdk:
     :path: ".symlinks/plugins/linkzly_flutter_sdk/ios"
   LinkzlySDK:
-    :git: https://github.com/linkzly/linkzly-ios-sdk.git
-    :tag: 1.0.4
-
-CHECKOUT OPTIONS:
-  LinkzlySDK:
-    :git: https://github.com/linkzly/linkzly-ios-sdk.git
-    :tag: 1.0.4
+    :path: "../../../linkzly-ios-sdk"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   linkzly_flutter_sdk: 55fcd92daab1981ebe352aec6e41dc2d3905eb51
-  LinkzlySDK: c891615594a725b8bf65970c56f0e91f639ab60a
+  LinkzlySDK: a5685ecd5af3ba6c121134d8564dee72deb0db6b
 
-PODFILE CHECKSUM: 9a631361a8c4885ba53e1024ffe2bc52507bf692
+PODFILE CHECKSUM: 0041ad4d1e5ee15bce36bd9818d0b86d365745e0
 
 COCOAPODS: 1.16.2
