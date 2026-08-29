@@ -55,7 +55,7 @@ target 'Runner' do
   use_frameworks!
 
   # Required: pin the native LinkzlySDK from GitHub.
-  pod 'LinkzlySDK', :git => 'https://github.com/linkzly/linkzly-ios-sdk.git', :tag => '1.0.5'
+  pod 'LinkzlySDK', :git => 'https://github.com/linkzly/linkzly-ios-sdk.git', :tag => '1.0.0'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
@@ -257,21 +257,35 @@ Your SDK key starts with `slk_` and is shown in the Linkzly Console under **Apps
 
 ## Push Notification Support
 
-The SDK exposes **two independent push features** — most apps that target individual users want the first one:
+The SDK exposes **two push features**. They are not independent: broadcast delivery is unlocked by device token registration, so start with the first one.
 
 | Feature | Methods | What it does | When to use |
 |---|---|---|---|
 | **Device token registration** | `setNotificationToken` / `getNotificationToken` / `hasNotificationToken` / `clearNotificationToken` | Registers this device's **APNs/FCM token** in Linkzly's device registry so campaigns can target the specific device/user. Works with **any** push provider. | You want Linkzly to send (or target) notifications to individual devices/users. |
-| **Broadcast topic subscription** | `initializePush` / `disablePush` | Subscribes the device to a shared **FCM broadcast topic** for "send to All" campaigns. FCM-only, via reflection in the native SDK. | You only need broadcast-to-everyone campaigns and use Firebase Cloud Messaging. |
+| **Broadcast topic subscription** | `initializePush` / `disablePush` | Subscribes the device to its **per-(Smart App, platform) FCM topic** for "send to All" campaigns. The topic name comes from a successful `setNotificationToken` registration — `initializePush()` alone is a no-op until then. FCM-only, via reflection in the native SDK. | You need broadcast-to-everyone campaigns and use Firebase Cloud Messaging. |
 
-> **Requires native SDK support.** These methods bridge to the native iOS/Android SDKs. They need **iOS `LinkzlySDK ≥ 1.0.3`** (CocoaPods) and **Android `com.github.Linkzly:linkzly-android-sdk ≥ 1.0.5`** (JitPack) — both of which this Flutter plugin already resolves (iOS podspec pins `~> 1.0`, Android pins `1.0.5`). Earlier native versions do not include these methods.
+**Registering a token is the whole setup.** A successful `setNotificationToken()` subscribes the device to its broadcast topic immediately, and the native SDK re-subscribes on every launch. `initializePush()` / `disablePush()` are recovery and opt-out controls, not the mechanism.
+
+> **Native SDK versions.** Push lives in the native iOS/Android SDKs. This plugin already pins versions that support it — iOS `LinkzlySDK` 1.0.7+ and Android `linkzly-android-sdk` 1.0.9+ — so there is nothing extra to add.
+>
+> If the build can't find these methods, or broadcasts never arrive, your project is probably still resolving an older native SDK from a lockfile or cache:
+>
+> ```bash
+> cd ios && pod update LinkzlySDK && cd ..
+> cd android && ./gradlew --refresh-dependencies && cd ..
+> ```
 
 ### Registering a device push token
 
 Capture the device push token from your push library (e.g. `firebase_messaging`) and forward it. The native SDK throttles network calls (it only re-registers when the token, user, or app version changes, or after 7 days), so it is safe to call on every launch.
 
+Call `Firebase.initializeApp()` **before** this — Flutter apps commonly initialize Firebase inside an async `main()`, and if it lands after the token is registered the topic is stored but the subscribe fails. Nothing is lost: the native SDK re-subscribes on the next launch, and `initializePush()` fixes it immediately.
+
 ```dart
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+
+await Firebase.initializeApp();
 
 final token = await FirebaseMessaging.instance.getToken();
 if (token != null) {
@@ -297,6 +311,37 @@ await Linkzly.instance.clearNotificationToken();
 final token = await Linkzly.instance.getNotificationToken(); // String?
 final has = await Linkzly.instance.hasNotificationToken();   // bool
 ```
+
+### Broadcast topic subscription (FCM-only)
+
+There is no separate broadcast setup call — the registration above already subscribes this device to its topic (`linkzly_broadcast_<smartAppId>_<platform>`), and the native SDK re-subscribes on every launch. Topics are scoped per Smart App and platform, so a campaign only reaches the app it selected; the legacy shared `linkzly_broadcast` topic is unsubscribed automatically.
+
+`initializePush()` re-subscribes to the topic stored by the last successful `setNotificationToken()` registration. That makes it a **recovery call** for two situations: you unsubscribed from the topic yourself, or registration succeeded while Firebase Messaging was not yet live so the topic was stored but the subscribe failed. If registration has never succeeded there is no stored topic and it returns `false` — fix the registration instead.
+
+```dart
+final resubscribed = await Linkzly.instance.initializePush();
+if (!resubscribed) {
+  // No topic stored yet (register first) or Firebase Messaging is unavailable.
+}
+```
+
+```dart
+await Linkzly.instance.disablePush();
+```
+
+> **`disablePush()` is session-scoped, not a durable opt-out.** It unsubscribes, but the stored topic and token are kept, so the next launch re-subscribes. For a permanent opt-out use `clearNotificationToken()` — it revokes the token server-side and clears the stored topic.
+
+If your app uses **OneSignal**, **Braze**, or another push provider, you do not need these methods. Your provider's own SDK handles subscriptions, and Linkzly delivers campaigns through whichever provider is configured in the Console.
+
+#### Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| `initializePush()` returns `false` | No topic stored yet — `setNotificationToken()` has not completed successfully. Or Firebase Messaging is not in your app. |
+| Broadcasts never arrive | The device never registered. Check `setNotificationToken()` was called with a real APNs/FCM token and the registry call succeeded. |
+| Broadcasts arrive only after a restart | Firebase was not live when the token registered, so the topic was stored but the subscribe failed. Move `Firebase.initializeApp()` earlier, or call `initializePush()` once Firebase is ready. |
+| Notifications stop after a "disable" | `disablePush()` only lasts the session. Use `clearNotificationToken()`. |
+| Wrong app receives a campaign | The device is still on the legacy shared topic — dropped on the next successful registration against a current native SDK. |
 
 ## Deep Link Streams
 

@@ -61,6 +61,11 @@ class Linkzly {
   /// Register a push notification device token (APNs on iOS, FCM on Android)
   /// with Linkzly's device registry. Safe to call on every launch — the native
   /// SDK throttles network calls and only registers when something changed.
+  ///
+  /// This is also what enables **broadcast** ("send to All") campaigns: a
+  /// successful registration returns the device's per-(Smart App, platform) FCM
+  /// topic and subscribes to it. Initialize Firebase before calling this, or the
+  /// subscribe is deferred to the next launch.
   Future<void> setNotificationToken(String token) =>
       _channel.setNotificationToken(token);
 
@@ -99,8 +104,31 @@ class Linkzly {
 
   Future<String?> getIdfa() => _channel.getIdfa();
 
+  /// Re-subscribe to this device's Linkzly broadcast FCM topic.
+  ///
+  /// **Most apps never need to call this.** [setNotificationToken] already
+  /// subscribes on a successful registration, and the native SDK re-subscribes on
+  /// every launch.
+  ///
+  /// It re-subscribes to the topic stored by the last successful
+  /// [setNotificationToken] registration (`linkzly_broadcast_<smartAppId>_<platform>`),
+  /// which makes it a recovery call for two situations:
+  ///
+  /// - you unsubscribed from the topic yourself (e.g. via [disablePush]);
+  /// - registration succeeded while Firebase Messaging was not yet live, so the
+  ///   topic was stored but the subscribe itself failed.
+  ///
+  /// If registration has never succeeded there is no stored topic and this returns
+  /// false — fix the registration instead. FCM-only, via reflection in the native
+  /// SDK; also returns false when Firebase Messaging is unavailable.
   Future<bool> initializePush() => _channel.initializePush();
 
+  /// Unsubscribe from this device's broadcast topic (and the legacy global one).
+  ///
+  /// **Session-scoped, not a durable opt-out.** The stored topic and token are
+  /// kept, so the next launch re-subscribes. For a permanent opt-out (logout,
+  /// "turn off notifications") call [clearNotificationToken] instead — it revokes
+  /// the token server-side and clears the stored topic.
   Future<bool> disablePush() => _channel.disablePush();
 
   Future<bool> captureAffiliateAttribution(String url) =>
