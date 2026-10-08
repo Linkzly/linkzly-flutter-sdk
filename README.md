@@ -2,7 +2,13 @@
 
 Flutter bridge for Linkzly deep linking, deferred attribution, event tracking, affiliate attribution, and mobile measurement.
 
+Full documentation: https://docs.linkzly.com/docs/sdk-flutter
+
+Guides: [Tracking events](https://docs.linkzly.com/docs/sdk-tracking-events), [Tracking purchases](https://docs.linkzly.com/docs/sdk-tracking-purchases), [Integrations setup](https://docs.linkzly.com/docs/sdk-integrations-setup).
+
 ## Requirements
+
+Minimums declared by the package:
 
 - Flutter 3.35.6+
 - Dart 3.9+
@@ -10,6 +16,8 @@ Flutter bridge for Linkzly deep linking, deferred attribution, event tracking, a
 - Android API 21+
 
 ## Installation
+
+**SDK version:** 1.0.6
 
 ### 1. Add the Flutter package
 
@@ -23,39 +31,21 @@ Or add it manually to your app's `pubspec.yaml` and run `flutter pub get`:
 
 ```yaml
 dependencies:
-  linkzly_flutter_sdk: ^0.1.0
-```
-
-#### Alternative: pin to a Git tag
-
-```yaml
-dependencies:
-  linkzly_flutter_sdk:
-    git:
-      url: https://github.com/linkzly/linkzly-flutter-sdk.git
-      ref: v0.1.0
-```
-
-#### Alternative: local monorepo development
-
-```yaml
-dependencies:
-  linkzly_flutter_sdk:
-    path: ../3rd-party-sdk/linkzly-flutter-sdk
+  linkzly_flutter_sdk: ^1.0.6
 ```
 
 ### 2. iOS Setup
 
 #### 2a. Add LinkzlySDK to your Podfile (required)
 
-The native iOS `LinkzlySDK` is **not on CocoaPods Trunk** — `pod install` cannot resolve it transitively. Add an explicit pin to your app's `ios/Podfile`, inside the `target 'Runner'` block:
+The native iOS `LinkzlySDK` is **not on CocoaPods Trunk**: `pod install` cannot resolve it transitively and fails with `Unable to find a specification for 'LinkzlySDK'`. Add an explicit pin to your app's `ios/Podfile`, inside the `target 'Runner'` block:
 
 ```ruby
 target 'Runner' do
   use_frameworks!
 
   # Required: pin the native LinkzlySDK from GitHub.
-  pod 'LinkzlySDK', :git => 'https://github.com/linkzly/linkzly-ios-sdk.git', :tag => '1.0.0'
+  pod 'LinkzlySDK', :git => 'https://github.com/Linkzly/linkzly-ios-sdk.git', :tag => '1.0.7'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
@@ -156,11 +146,7 @@ allprojects {
 }
 ```
 
-The Flutter plugin already declares the native Android dependency:
-
-```gradle
-implementation "com.github.Linkzly:linkzly-android-sdk:1.0.5"
-```
+The Flutter plugin declares the native Android SDK itself and Gradle brings it in, so you do not add an Android SDK dependency line. The only Android step is the JitPack repository above.
 
 #### 3a. Configure Android Manifest Deep Links and App Links
 
@@ -229,31 +215,109 @@ Future<void> main() async {
 
 Your SDK key starts with `slk_` and is shown in the Linkzly Console under **Apps → Manage App → Overview → SDK Configuration**. Each app has a unique key — do not share keys between apps.
 
-## API Surface
+## Tracking Events
 
-- `configure`
-- `handleUniversalLink`
-- `trackInstall`
-- `trackOpen`
-- `trackEvent`
-- `trackPurchase`
-- `trackEventBatch`
-- `flushEvents`
-- `getPendingEventCount`
-- `setUserId` / `getUserId`
-- `setTrackingEnabled` / `isTrackingEnabled`
-- `getVisitorId` / `resetVisitorId`
-- `updateConversionValue`
-- `requestTrackingPermission`
-- `getAttStatus`
-- `getIdfa`
-- `setAdvertisingTrackingEnabled`
-- `isAdvertisingTrackingEnabled`
-- `setNotificationToken` / `getNotificationToken` / `hasNotificationToken` / `clearNotificationToken`
-- `initializePush` / `disablePush`
-- affiliate attribution helpers
-- gaming tracking helpers
-- debug batching helpers
+**Register the name first.** A custom event is kept only if its name is registered for the app in the console. An unregistered name is dropped, and on the default batched path the call and the flush still report success. See [Register each name in the console](https://docs.linkzly.com/docs/sdk-tracking-events#register-each-name-in-the-console).
+
+```dart
+// Custom event: the name, then an optional positional map of parameters
+await Linkzly.instance.trackEvent('signup_completed', {'method': 'email'});
+
+// Batch
+await Linkzly.instance.trackEventBatch([
+  const BatchEvent('level_started', parameters: {'level': 1}),
+]);
+
+await Linkzly.instance.flushEvents();
+final int pending = await Linkzly.instance.getPendingEventCount();
+```
+
+### Purchases and refunds
+
+Send `revenue`, `currency` and `transactionId` in every call. `transactionId` is the dedup key. A refund reuses the original `transactionId`. See the [purchases guide](https://docs.linkzly.com/docs/sdk-tracking-purchases).
+
+```dart
+final bool purchased = await Linkzly.instance.trackPurchase({
+  'revenue': 29.99,
+  'currency': 'USD',
+  'transactionId': 'order-12345',
+});
+
+final bool refunded = await Linkzly.instance.trackRefund({
+  'revenue': 29.99,
+  'currency': 'USD',
+  'transactionId': 'order-12345',
+});
+```
+
+## Affiliate Attribution
+
+```dart
+// Capture from a deep link URL: call this from your universal/app link handler
+await Linkzly.instance.captureAffiliateAttribution(url);
+
+final String? clickId = await Linkzly.instance.getAffiliateClickId();
+final AffiliateAttribution attribution =
+    await Linkzly.instance.getAffiliateAttribution();
+final bool hasAttribution = await Linkzly.instance.hasAffiliateAttribution();
+await Linkzly.instance.clearAffiliateAttribution();
+```
+
+## Gaming Tracking
+
+Gaming tracking runs a separate pipeline with its own credentials. Call `configureGamingTracking` first.
+
+```dart
+await Linkzly.instance.configureGamingTracking(
+  apiKey: 'YOUR_GAMING_API_KEY',
+  organizationId: 'YOUR_ORGANIZATION_ID',
+  gameId: 'YOUR_GAME_ID',
+  options: const GamingTrackingOptions(autoSessionTracking: true),
+);
+
+await Linkzly.instance.identifyGamingPlayer('player-42', {'tier': 'gold'});
+await Linkzly.instance.startGamingSession();
+await Linkzly.instance.trackGamingEvent('level_complete', data: {'level': 3});
+await Linkzly.instance.setGamingAttribution(clickId: 'click-abc');
+
+final GamingTrackingStatus status = await Linkzly.instance.getGamingStatus();
+
+await Linkzly.instance.flushGamingEvents();
+await Linkzly.instance.endGamingSession();
+await Linkzly.instance.clearGamingAttribution();
+await Linkzly.instance.resetGamingTracking();
+```
+
+## Debug and batching controls
+
+These controls do not work on iOS: every `debug...` call fails with a `PlatformException` whose code is `DEBUG_ONLY`. On Android they work in debuggable app builds only. The plugin has no `simulateServerConfig` or `printDebugConfig`. Accepted strategies for `debugSetBatchingStrategy`: `"all"` batches every event, `"smart"` (the default) batches custom events only, `"instant"` sends everything at once, `"custom"` behaves like `"smart"`.
+
+```dart
+await Linkzly.instance.debugSetBatchingStrategy('instant'); // 'all' | 'smart' | 'instant' | 'custom'
+await Linkzly.instance.debugSetBatchSize(5);
+await Linkzly.instance.debugSetFlushInterval(30); // seconds
+final Map<String, Object?>? config = await Linkzly.instance.debugGetConfig();
+await Linkzly.instance.debugResetConfig();
+```
+
+## API Reference
+
+Every method is called as `Linkzly.instance.<method>(...)`.
+
+- Setup: `configure`
+- Install, open and events: `trackInstall`, `trackOpen`, `trackEvent`, `trackEventBatch`, `flushEvents`, `getPendingEventCount`. The SDK sends the install itself on the first launch of a new install, so calling `trackInstall` on a new install sends a second install event. On iOS, `deepLinkStream` receives the deferred `DeepLinkData` from the automatic install. On Android it does not, so an explicit `trackInstall` is currently the only way to get it there; call it once, behind your own first-launch flag (the flag stops a third event, not the second). The SDK already sends opens itself: when the app returns to the foreground after more than 30 seconds, and from `configure` unless `autoTrackAppOpens` is `false`. Each explicit `trackOpen` call sends one more open event; call it only when you need the `DeepLinkData` it returns.
+- Revenue: `trackPurchase`, `trackRefund`
+- Identity: `setUserId`, `getUserId`, `getVisitorId`, `resetVisitorId`
+- Deep links: `handleUniversalLink`, and the streams `deepLinkStream` and `universalLinkStream`
+- Affiliate: `captureAffiliateAttribution`, `getAffiliateAttribution`, `getAffiliateClickId`, `hasAffiliateAttribution`, `clearAffiliateAttribution`
+- Tracking permission and SKAdNetwork (iOS only): `requestTrackingPermission`, `getAttStatus`, `getIdfa`, `updateConversionValue`
+- Advertising tracking: `setAdvertisingTrackingEnabled`, `isAdvertisingTrackingEnabled`
+- Push: `setNotificationToken`, `getNotificationToken`, `hasNotificationToken`, `clearNotificationToken`, `initializePush`, `disablePush`
+- Privacy: `setTrackingEnabled`, `isTrackingEnabled`. `setTrackingEnabled(false)` stops custom events, purchases and refunds, and on Android `trackEventBatch`; on iOS `trackEventBatch` is not stopped. It does not stop the install, open and session-end events the SDK sends itself, and on Android it has no effect before `configure`. The SDK sends nothing before `configure`: an app that must send nothing before the user consents delays `configure` until the user has consented, and uses `setTrackingEnabled(false)` afterwards to stop events, purchases and refunds.
+- Gaming: `configureGamingTracking`, `identifyGamingPlayer`, `trackGamingEvent`, `flushGamingEvents`, `startGamingSession`, `endGamingSession`, `setGamingAttribution`, `clearGamingAttribution`, `getGamingStatus`, `resetGamingTracking`
+- Debug (fail with `DEBUG_ONLY` on iOS; debuggable builds only on Android): `debugSetBatchingStrategy`, `debugSetBatchSize`, `debugSetFlushInterval`, `debugResetConfig`, `debugGetConfig`
+
+On Android the iOS-only methods do nothing: `updateConversionValue` returns `false`, `requestTrackingPermission` returns `'unsupported'`, `getIdfa` and `getAttStatus` return `null`.
 
 ## Push Notification Support
 
@@ -261,14 +325,14 @@ The SDK exposes **two push features**. They are not independent: broadcast deliv
 
 | Feature | Methods | What it does | When to use |
 |---|---|---|---|
-| **Device token registration** | `setNotificationToken` / `getNotificationToken` / `hasNotificationToken` / `clearNotificationToken` | Registers this device's **APNs/FCM token** in Linkzly's device registry so campaigns can target the specific device/user. Works with **any** push provider. | You want Linkzly to send (or target) notifications to individual devices/users. |
+| **Device token registration** | `setNotificationToken` / `getNotificationToken` / `hasNotificationToken` / `clearNotificationToken` | Registers this device's **Firebase Cloud Messaging (FCM) registration token** in Linkzly's device registry so campaigns can target the specific device/user. On iOS as well as Android, pass the token `firebase_messaging` gives you, never the APNs device token. Devices registered through the SDK are reached through Firebase Cloud Messaging. | You want Linkzly to send (or target) notifications to individual devices/users. |
 | **Broadcast topic subscription** | `initializePush` / `disablePush` | Subscribes the device to its **per-(Smart App, platform) FCM topic** for "send to All" campaigns. The topic name comes from a successful `setNotificationToken` registration — `initializePush()` alone is a no-op until then. FCM-only, via reflection in the native SDK. | You need broadcast-to-everyone campaigns and use Firebase Cloud Messaging. |
+
+Before `configure` has run, `setNotificationToken` is ignored on both iOS and Android (nothing is stored). If your app delays `configure`, for example until the user has consented, call `setNotificationToken` again after `configure` with the current token from your Firebase Messaging library; a call made after `configure` registers normally.
 
 **Registering a token is the whole setup.** A successful `setNotificationToken()` subscribes the device to its broadcast topic immediately, and the native SDK re-subscribes on every launch. `initializePush()` / `disablePush()` are recovery and opt-out controls, not the mechanism.
 
-> **Native SDK versions.** Push lives in the native iOS/Android SDKs. This plugin already pins versions that support it — iOS `LinkzlySDK` 1.0.7+ and Android `linkzly-android-sdk` 1.0.9+ — so there is nothing extra to add.
->
-> If the build can't find these methods, or broadcasts never arrive, your project is probably still resolving an older native SDK from a lockfile or cache:
+> **Stale native SDK.** Push lives in the native iOS and Android SDKs. If the build cannot find these methods, or broadcasts never arrive, your project is probably resolving an older native SDK from a lockfile or cache. Refresh both:
 >
 > ```bash
 > cd ios && pod update LinkzlySDK && cd ..
@@ -276,6 +340,8 @@ The SDK exposes **two push features**. They are not independent: broadcast deliv
 > ```
 
 ### Registering a device push token
+
+The example below needs `firebase_core` and `firebase_messaging` in your app (`flutter pub add firebase_core firebase_messaging`) with Firebase set up. They are prerequisites of this example only: `setNotificationToken` takes the FCM registration token.
 
 Capture the device push token from your push library (e.g. `firebase_messaging`) and forward it. The native SDK throttles network calls (it only re-registers when the token, user, or app version changes, or after 7 days), so it is safe to call on every launch.
 
@@ -287,12 +353,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 await Firebase.initializeApp();
 
-final token = await FirebaseMessaging.instance.getToken();
+final String? token = await FirebaseMessaging.instance.getToken();
 if (token != null) {
   await Linkzly.instance.setNotificationToken(token);
 }
 
-FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) {
   Linkzly.instance.setNotificationToken(newToken);
 });
 ```
@@ -331,14 +397,14 @@ await Linkzly.instance.disablePush();
 
 > **`disablePush()` is session-scoped, not a durable opt-out.** It unsubscribes, but the stored topic and token are kept, so the next launch re-subscribes. For a permanent opt-out use `clearNotificationToken()` — it revokes the token server-side and clears the stored topic.
 
-If your app uses **OneSignal**, **Braze**, or another push provider, you do not need these methods. Your provider's own SDK handles subscriptions, and Linkzly delivers campaigns through whichever provider is configured in the Console.
+If your app also uses another push provider for its own delivery, you do **not** need to call these methods for it. Devices registered through the SDK are reached through Firebase Cloud Messaging.
 
 #### Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
 | `initializePush()` returns `false` | No topic stored yet — `setNotificationToken()` has not completed successfully. Or Firebase Messaging is not in your app. |
-| Broadcasts never arrive | The device never registered. Check `setNotificationToken()` was called with a real APNs/FCM token and the registry call succeeded. |
+| Broadcasts never arrive | The device never registered. Check `setNotificationToken()` was called with a real FCM registration token (on iOS the Firebase token, not the APNs device token) and the registry call succeeded. |
 | Broadcasts arrive only after a restart | Firebase was not live when the token registered, so the topic was stored but the subscribe failed. Move `Firebase.initializeApp()` earlier, or call `initializePush()` once Firebase is ready. |
 | Notifications stop after a "disable" | `disablePush()` only lasts the session. Use `clearNotificationToken()`. |
 | Wrong app receives a campaign | The device is still on the legacy shared topic — dropped on the next successful registration against a current native SDK. |
@@ -348,7 +414,7 @@ If your app uses **OneSignal**, **Braze**, or another push provider, you do not 
 Use `deepLinkStream` for backend-enriched deep link data and `universalLinkStream` for raw universal/app link capture events.
 
 ```dart
-final subscription = Linkzly.instance.deepLinkStream.listen((data) {
+final subscription = Linkzly.instance.deepLinkStream.listen((DeepLinkData data) {
   print(data.path);
 });
 ```
