@@ -6,6 +6,10 @@ Full documentation: https://docs.linkzly.com/docs/sdk-flutter
 
 Guides: [Tracking events](https://docs.linkzly.com/docs/sdk-tracking-events), [Tracking purchases](https://docs.linkzly.com/docs/sdk-tracking-purchases), [Integrations setup](https://docs.linkzly.com/docs/sdk-integrations-setup).
 
+## Using an AI coding agent
+
+If you use an AI coding agent (Claude Code, Codex, Cursor, GitHub Copilot, Antigravity), give it the Linkzly skill and ask it to add the SDK to your app: `npx skills add Linkzly/skills`. The skill carries these instructions, cut to your platform, and rules for the SDK behaviours that are easy to get wrong. It asks you for your SDK key and never makes one up. See [Set up with an AI agent](https://docs.linkzly.com/docs/sdk-ai-agents).
+
 ## Requirements
 
 Minimums declared by the package:
@@ -125,7 +129,6 @@ If your app uses `dependencyResolutionManagement` in `android/settings.gradle.kt
 
 ```kotlin
 dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
     google()
     mavenCentral()
@@ -213,7 +216,9 @@ Future<void> main() async {
 }
 ```
 
-Your SDK key starts with `slk_` and is shown in the Linkzly Console under **Apps → Manage App → Overview → SDK Configuration**. Each app has a unique key — do not share keys between apps.
+Your SDK key starts with `slk_` and is shown in the Linkzly Console under **Apps → Manage app → Overview → SDK Configuration**. Each app has a unique key — do not share keys between apps.
+
+`configure` completes even when the native SDK refused the key. A key that is not `slk_` followed by at least 40 hex characters (the placeholder above is one) leaves the SDK unconfigured for the life of the app process, and later `configure` calls are ignored. After you put the real key in, stop the app and run it again; hot reload and hot restart are not enough.
 
 ## Tracking Events
 
@@ -234,7 +239,7 @@ final int pending = await Linkzly.instance.getPendingEventCount();
 
 ### Purchases and refunds
 
-Send `revenue`, `currency` and `transactionId` in every call. `transactionId` is the dedup key. A refund reuses the original `transactionId`. See the [purchases guide](https://docs.linkzly.com/docs/sdk-tracking-purchases).
+Send `revenue`, `currency` and `transactionId` in every call. `transactionId` is the dedup key. A refund reuses the original `transactionId`. Purchases are recorded only when Revenue & LTV is enabled for your organisation. See the [purchases guide](https://docs.linkzly.com/docs/sdk-tracking-purchases).
 
 ```dart
 final bool purchased = await Linkzly.instance.trackPurchase({
