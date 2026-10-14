@@ -82,6 +82,8 @@ Add the following keys to `ios/Runner/Info.plist`:
 </array>
 ```
 
+Replace the example `NSUserTrackingUsageDescription` text with your own. The permission prompt shows it to the person, so keep it short and specific; iOS adds your app's name itself.
+
 If you call `Linkzly.instance.updateConversionValue(...)` for SKAdNetwork attribution, you must also add `SKAdNetworkItems` with the ad-network identifiers your app uses. Linkzly does not require its own identifier here unless instructed by your account manager.
 
 #### 2c. Configure Associated Domains (Universal Links)
@@ -323,6 +325,14 @@ Every method is called as `Linkzly.instance.<method>(...)`.
 - Debug (fail with `DEBUG_ONLY` on iOS; debuggable builds only on Android): `debugSetBatchingStrategy`, `debugSetBatchSize`, `debugSetFlushInterval`, `debugResetConfig`, `debugGetConfig`
 
 On Android the iOS-only methods do nothing: `updateConversionValue` returns `false`, `requestTrackingPermission` returns `'unsupported'`, `getIdfa` and `getAttStatus` return `null`.
+
+On iOS, `requestTrackingPermission` returns `'authorized'`, `'denied'`, `'restricted'`, `'notDetermined'` or `'unknown'`. It hands the request to Apple's App Tracking Transparency framework, so Apple's rules decide what happens:
+
+- **The `Info.plist` key comes first.** `NSUserTrackingUsageDescription` has to be in `Info.plist` before the first call: the app crashes if the call runs without it.
+- **The app has to be active.** iOS shows the prompt only while the app is active. Called earlier, while the app is still starting, no prompt appears and the call returns at once with the current status, which is `'notDetermined'` on a new install. Call it from a screen the person has reached.
+- **iOS 14.5 or later.** On an earlier iOS version the call returns `null`.
+
+The SDK does not wait for the answer. It reads the IDFA at the moment it sends an event, and `configure` sends the install event on the first launch. So the install event has no IDFA unless the person had already allowed tracking when `configure` ran, and the SDK does not send it again once they do. Events sent after the person allows tracking carry the IDFA.
 
 ## Push Notification Support
 
