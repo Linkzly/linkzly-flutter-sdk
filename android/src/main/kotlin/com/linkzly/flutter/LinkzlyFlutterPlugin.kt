@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import com.linkzly.sdk.LinkzlySDK
 import com.linkzly.sdk.gaming.LinkzlyGamingTracking
+import com.linkzly.sdk.models.ConsentState
 import com.linkzly.sdk.models.DeepLinkData
 import com.linkzly.sdk.models.Environment
 import com.linkzly.sdk.utils.LinkzlySDKDebug
@@ -140,6 +141,8 @@ class LinkzlyFlutterPlugin :
                 "updateConversionValue" -> result.success(
                     mapOf("success" to false, "message" to "SKAdNetwork is iOS only")
                 )
+                "setConsent" -> setConsent(call, result)
+                "getConsent" -> getConsent(result)
                 "requestTrackingPermission" -> result.success("unsupported")
                 "setAdvertisingTrackingEnabled" -> {
                     LinkzlySDK.setAdvertisingTrackingEnabled(call.requireArgument("enabled"))
@@ -202,6 +205,50 @@ class LinkzlyFlutterPlugin :
         val data = LinkzlySDK.handleAppLink(intent) ?: return false
         emitDeepLink(data.toFlutterMap())
         return true
+    }
+
+    /**
+     * Mirrors `LinkzlySDK.setConsent`: only the fields present in the call are passed on (the rest
+     * stay null, so the SDK keeps its stored value). Every field is checked first; an unknown word
+     * fails with INVALID_CONSENT and changes nothing.
+     */
+    private fun setConsent(call: MethodCall, result: MethodChannel.Result) {
+        val states = HashMap<String, ConsentState>()
+        for (field in listOf("analytics", "adUserData", "adPersonalization")) {
+            val raw = call.argument<Any?>(field) ?: continue
+            val state = when (raw as? String) {
+                "granted" -> ConsentState.GRANTED
+                "denied" -> ConsentState.DENIED
+                "unspecified" -> ConsentState.UNSPECIFIED
+                else -> {
+                    result.error("INVALID_CONSENT", "$field must be granted, denied or unspecified", null)
+                    return
+                }
+            }
+            states[field] = state
+        }
+        LinkzlySDK.setConsent(states["analytics"], states["adUserData"], states["adPersonalization"])
+        result.success(successMap())
+    }
+
+    /** Returns null until a field has been set; the Android SDK has no capturedAt. */
+    private fun getConsent(result: MethodChannel.Result) {
+        val consent = LinkzlySDK.getConsent()
+        if (consent.analytics == null && consent.adUserData == null && consent.adPersonalization == null) {
+            result.success(null)
+            return
+        }
+        val payload = HashMap<String, Any>()
+        consent.analytics?.let { payload["analytics"] = consentWord(it) }
+        consent.adUserData?.let { payload["adUserData"] = consentWord(it) }
+        consent.adPersonalization?.let { payload["adPersonalization"] = consentWord(it) }
+        result.success(payload)
+    }
+
+    private fun consentWord(state: ConsentState): String = when (state) {
+        ConsentState.GRANTED -> "granted"
+        ConsentState.DENIED -> "denied"
+        ConsentState.UNSPECIFIED -> "unspecified"
     }
 
     private fun configure(call: MethodCall, result: MethodChannel.Result) {

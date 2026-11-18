@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'event_properties.dart';
 import 'models.dart';
 
 @visibleForTesting
@@ -10,6 +11,8 @@ const String deepLinkEventChannelName = 'linkzly_flutter_sdk/deep_links';
 @visibleForTesting
 const String universalLinkEventChannelName =
     'linkzly_flutter_sdk/universal_links';
+
+const Set<String> _coarseValues = <String>{'low', 'medium', 'high'};
 
 class LinkzlyMethodChannel {
   LinkzlyMethodChannel({
@@ -74,7 +77,8 @@ class LinkzlyMethodChannel {
       'trackEvent',
       <String, Object?>{
         'eventName': eventName,
-        'parameters': parameters,
+        // Converted here: the codec throws on a DateTime or other unknown type.
+        'parameters': encodeEventProperties(eventName, parameters),
       },
     );
   }
@@ -102,7 +106,13 @@ class LinkzlyMethodChannel {
         await _methodChannel.invokeMapMethod<Object?, Object?>(
       'trackEventBatch',
       <String, Object?>{
-        'events': events.map((BatchEvent event) => event.toMap()).toList(),
+        'events': events
+            .map((BatchEvent event) => <String, Object?>{
+                  'eventName': event.eventName,
+                  'parameters':
+                      encodeEventProperties(event.eventName, event.parameters),
+                })
+            .toList(),
       },
     );
     return _success(result);
@@ -168,13 +178,48 @@ class LinkzlyMethodChannel {
     await _methodChannel.invokeMapMethod<String, Object?>('resetVisitorID');
   }
 
-  Future<bool> updateConversionValue(int value) async {
+  Future<bool> updateConversionValue(
+    int value, {
+    String? coarseValue,
+    bool? lockWindow,
+  }) async {
+    final Map<String, Object?> arguments = <String, Object?>{'value': value};
+    // A coarse value (and the window lock) is sent only when it is one of the
+    // three known words; otherwise the call is the fine value alone.
+    if (coarseValue != null && _coarseValues.contains(coarseValue)) {
+      arguments['coarseValue'] = coarseValue;
+      arguments['lockWindow'] = lockWindow == true;
+    }
     final Map<Object?, Object?>? result =
         await _methodChannel.invokeMapMethod<Object?, Object?>(
       'updateConversionValue',
-      <String, Object?>{'value': value},
+      arguments,
     );
     return _success(result);
+  }
+
+  Future<void> setConsent({
+    ConsentState? analytics,
+    ConsentState? adUserData,
+    ConsentState? adPersonalization,
+  }) async {
+    // Only the fields the app set cross the channel, as plain words.
+    final Map<String, Object?> arguments = <String, Object?>{
+      if (analytics != null) 'analytics': analytics.name,
+      if (adUserData != null) 'adUserData': adUserData.name,
+      if (adPersonalization != null) 'adPersonalization': adPersonalization.name,
+    };
+    if (arguments.isEmpty) return;
+    await _methodChannel.invokeMapMethod<String, Object?>(
+      'setConsent',
+      arguments,
+    );
+  }
+
+  Future<ConsentSettings?> getConsent() async {
+    final Map<Object?, Object?>? result =
+        await _methodChannel.invokeMapMethod<Object?, Object?>('getConsent');
+    return result == null ? null : ConsentSettings.fromMap(result);
   }
 
   Future<String?> requestTrackingPermission() =>

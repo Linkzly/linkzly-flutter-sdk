@@ -92,6 +92,46 @@ class BatchEvent {
       };
 }
 
+/// One consent answer. [unspecified] means the app has no definite answer.
+enum ConsentState { granted, denied, unspecified }
+
+/// The consent the app has set through `Linkzly.setConsent`. A field is null
+/// until the app sets it.
+class ConsentSettings {
+  const ConsentSettings({
+    this.analytics,
+    this.adUserData,
+    this.adPersonalization,
+    this.capturedAt,
+  });
+
+  final ConsentState? analytics;
+  final ConsentState? adUserData;
+  final ConsentState? adPersonalization;
+
+  /// Time of the latest `setConsent` call. Reported on iOS only; null on Android.
+  final DateTime? capturedAt;
+
+  factory ConsentSettings.fromMap(Map<Object?, Object?> map) {
+    final Object? captured = map['capturedAt'];
+    return ConsentSettings(
+      analytics: _consentStateOrNull(map['analytics']),
+      adUserData: _consentStateOrNull(map['adUserData']),
+      adPersonalization: _consentStateOrNull(map['adPersonalization']),
+      capturedAt: captured is num
+          ? DateTime.fromMillisecondsSinceEpoch(captured.toInt(), isUtc: true)
+          : null,
+    );
+  }
+}
+
+ConsentState? _consentStateOrNull(Object? value) {
+  for (final ConsentState state in ConsentState.values) {
+    if (state.name == value) return state;
+  }
+  return null;
+}
+
 class AffiliateAttribution {
   const AffiliateAttribution({
     this.clickId,

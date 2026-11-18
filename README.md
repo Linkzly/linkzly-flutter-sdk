@@ -16,12 +16,12 @@ Minimums declared by the package:
 
 - Flutter 3.35.6+
 - Dart 3.9+
-- iOS 13+
+- iOS 15+
 - Android API 21+
 
 ## Installation
 
-**SDK version:** 1.0.6
+**SDK version:** 1.0.8
 
 ### 1. Add the Flutter package
 
@@ -35,7 +35,7 @@ Or add it manually to your app's `pubspec.yaml` and run `flutter pub get`:
 
 ```yaml
 dependencies:
-  linkzly_flutter_sdk: ^1.0.6
+  linkzly_flutter_sdk: ^1.0.8
 ```
 
 ### 2. iOS Setup
@@ -49,7 +49,7 @@ target 'Runner' do
   use_frameworks!
 
   # Required: pin the native LinkzlySDK from GitHub.
-  pod 'LinkzlySDK', :git => 'https://github.com/Linkzly/linkzly-ios-sdk.git', :tag => '1.0.7'
+  pod 'LinkzlySDK', :git => 'https://github.com/Linkzly/linkzly-ios-sdk.git', :tag => '1.0.8'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end

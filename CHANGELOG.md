@@ -1,3 +1,18 @@
+## 1.0.8 - Event property values, consent and SKAdNetwork coarse values
+
+### Added
+- `setConsent` and `getConsent`. `setConsent` takes `analytics`, `adUserData` and `adPersonalization`, each `ConsentState.granted`, `denied` or `unspecified`; a field you leave out keeps its value. The native SDK attaches the answers to every later event and sends a denial to Linkzly. A grant is never sent to Linkzly's server, so granting cannot undo a denial recorded there. `getConsent` returns what you have set, or `null` before the first `setConsent`.
+- `updateConversionValue` takes optional `coarseValue` (`'low'`, `'medium'` or `'high'`) and `lockWindow` for SKAdNetwork 4. They apply on iOS 16.1 and later; any other value, or an older iOS, sends the fine value alone. Android still ignores the call.
+- Documented the optional purchase keys `environment`, `original_transaction_id`, `refund_id` and `is_renewal` on `trackPurchase` and `trackRefund`. The plugin passes the whole map to the native SDK unchanged.
+
+### Changed
+- `trackEvent` and `trackEventBatch` now send a `DateTime` property as ISO 8601 UTC text with milliseconds (`2026-10-27T10:15:30.123Z`) instead of throwing and losing the event. NaN, Infinity or an unsupported value is dropped with a debug warning (inside a list or map it becomes `null`), a top-level `null` leaves the key out on both platforms, and the rest of the event is still sent. A property named with a Linkzly-reserved key (or the `__` prefix) logs a debug warning and is still sent.
+- Minimum iOS version is now 15.0 (it was 13). The native iOS SDK 1.0.8 requires it.
+- Tightened the iOS CocoaPods dependency from `LinkzlySDK ~> 1.0.7` to `~> 1.0.8`, and bumped the native Android dependency `com.github.Linkzly:linkzly-android-sdk` from 1.0.9 to 1.0.10, for consent support.
+
+### Platform Support
+- Requires native iOS `LinkzlySDK` 1.0.8+ and Android `linkzly-android-sdk` 1.0.10+. Both are pinned by the plugin.
+
 ## 1.0.7 - App-scoped push broadcasts
 
 ### Changed

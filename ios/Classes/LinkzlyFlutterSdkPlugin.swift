@@ -153,6 +153,12 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
         case "updateConversionValue":
             updateConversionValue(args, result: result)
 
+        case "setConsent":
+            setConsent(args, result: result)
+
+        case "getConsent":
+            getConsent(result: result)
+
         case "requestTrackingPermission":
             requestTrackingPermission(result)
 
@@ -365,6 +371,21 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "value is required", details: nil))
             return
         }
+        // Optional SKAdNetwork 4 coarse value (and window lock): only a valid word on iOS 16.1+
+        // takes the coarse path; anything else sends the fine value alone, as before.
+        if #available(iOS 16.1, *), let word = args["coarseValue"] as? String,
+           let coarse = coarseConversionValue(from: word) {
+            if boolValue(args["lockWindow"]) == true {
+                LinkzlySDK.updateConversionValue(value, coarseValue: coarse, lockWindow: true) { success in
+                    result(["success": success])
+                }
+            } else {
+                LinkzlySDK.updateConversionValue(value, coarseValue: coarse) { success in
+                    result(["success": success])
+                }
+            }
+            return
+        }
         if #available(iOS 14.0, *) {
             LinkzlySDK.updateConversionValue(value) { success in
                 result(["success": success])
@@ -372,6 +393,66 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
         } else {
             result(["success": false])
         }
+    }
+
+    @available(iOS 16.1, *)
+    private func coarseConversionValue(from word: String) -> SKAdNetwork.CoarseConversionValue? {
+        switch word {
+        case "low": return .low
+        case "medium": return .medium
+        case "high": return .high
+        default: return nil
+        }
+    }
+
+    private func consentState(from word: String) -> ConsentState? {
+        switch word {
+        case "granted": return .granted
+        case "denied": return .denied
+        case "unspecified": return .unspecified
+        default: return nil
+        }
+    }
+
+    // Comparisons, not a switch: an enum from another module may gain cases.
+    private func consentWord(_ state: ConsentState) -> String {
+        if state == .granted { return "granted" }
+        if state == .denied { return "denied" }
+        return "unspecified"
+    }
+
+    /// Mirrors `LinkzlySDK.setConsent`: only the fields present in the call are passed on.
+    /// Every field is checked first; an unknown word fails with INVALID_CONSENT and changes nothing.
+    private func setConsent(_ args: [String: Any], result: @escaping FlutterResult) {
+        var parsed: [String: ConsentState] = [:]
+        for field in ["analytics", "adUserData", "adPersonalization"] {
+            guard let raw = args[field], !(raw is NSNull) else { continue }
+            guard let word = raw as? String, let state = consentState(from: word) else {
+                result(FlutterError(code: "INVALID_CONSENT", message: "\(field) must be granted, denied or unspecified", details: nil))
+                return
+            }
+            parsed[field] = state
+        }
+        LinkzlySDK.setConsent(
+            analytics: parsed["analytics"],
+            adUserData: parsed["adUserData"],
+            adPersonalization: parsed["adPersonalization"]
+        )
+        result(successMap())
+    }
+
+    /// Returns null until `setConsent` has been called. `capturedAt` is epoch milliseconds.
+    private func getConsent(result: @escaping FlutterResult) {
+        guard let snapshot = LinkzlySDK.getConsent() else {
+            result(nil)
+            return
+        }
+        var payload: [String: Any] = [:]
+        if let state = snapshot.analytics { payload["analytics"] = consentWord(state) }
+        if let state = snapshot.adUserData { payload["adUserData"] = consentWord(state) }
+        if let state = snapshot.adPersonalization { payload["adPersonalization"] = consentWord(state) }
+        payload["capturedAt"] = Int((snapshot.capturedAt.timeIntervalSince1970 * 1000).rounded())
+        result(payload)
     }
 
     private func requestTrackingPermission(_ result: @escaping FlutterResult) {

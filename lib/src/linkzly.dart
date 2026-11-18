@@ -36,12 +36,18 @@ class Linkzly {
   ]) =>
       _channel.trackEvent(eventName, parameters);
 
+  /// Track a purchase. The whole map goes to the native SDK unchanged. Optional
+  /// keys it reads: `environment` (for example `sandbox` or `production`),
+  /// `originalTransactionId` / `original_transaction_id` and `isRenewal` /
+  /// `is_renewal` (a bool).
   Future<bool> trackPurchase([
     Map<String, Object?> parameters = const <String, Object?>{},
   ]) =>
       _channel.trackPurchase(parameters);
 
   /// Track a refund of a prior purchase (pass the original transactionId).
+  /// The whole map goes to the native SDK unchanged. The optional key
+  /// `refundId` / `refund_id` names the refund.
   Future<bool> trackRefund([
     Map<String, Object?> parameters = const <String, Object?>{},
   ]) =>
@@ -88,8 +94,46 @@ class Linkzly {
 
   Future<void> resetVisitorId() => _channel.resetVisitorId();
 
-  Future<bool> updateConversionValue(int value) =>
-      _channel.updateConversionValue(value);
+  /// Update the SKAdNetwork conversion value (iOS only).
+  ///
+  /// [coarseValue] is optional: `'low'`, `'medium'` or `'high'`. It applies on
+  /// iOS 16.1 and later; any other word, or an older iOS, sends [value] alone.
+  /// [lockWindow] locks the postback window and is ignored without a valid
+  /// [coarseValue].
+  Future<bool> updateConversionValue(
+    int value, {
+    String? coarseValue,
+    bool? lockWindow,
+  }) =>
+      _channel.updateConversionValue(
+        value,
+        coarseValue: coarseValue,
+        lockWindow: lockWindow,
+      );
+
+  /// Tell the SDK what the user agreed to. Only the fields you pass are
+  /// changed; a field you leave out keeps its stored value, and a call with no
+  /// field does nothing. Until the first call the SDK sends no consent at all.
+  ///
+  /// - Every later event carries the consent as it was when the event was created.
+  /// - While [analytics] is [ConsentState.denied] the SDK creates no events.
+  /// - With [adUserData] [ConsentState.denied] the SDK sends no advertising ID.
+  /// - A denial is also sent to Linkzly's server. A grant is never sent to the
+  ///   server's current-state endpoint (it only tightens), so
+  ///   [ConsentState.granted] cannot undo a denial already recorded on the server.
+  Future<void> setConsent({
+    ConsentState? analytics,
+    ConsentState? adUserData,
+    ConsentState? adPersonalization,
+  }) =>
+      _channel.setConsent(
+        analytics: analytics,
+        adUserData: adUserData,
+        adPersonalization: adPersonalization,
+      );
+
+  /// The consent you have set, or null if [setConsent] was never called.
+  Future<ConsentSettings?> getConsent() => _channel.getConsent();
 
   Future<String?> requestTrackingPermission() =>
       _channel.requestTrackingPermission();

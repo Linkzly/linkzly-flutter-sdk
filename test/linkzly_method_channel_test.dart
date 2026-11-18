@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:linkzly_flutter_sdk/src/linkzly_method_channel.dart';
@@ -85,5 +86,84 @@ void main() {
 
     expect(attribution.hasAttribution, isFalse);
     expect(attribution.source, 'none');
+  });
+
+  group('event properties cross the message codec', () {
+    late List<String?> logs;
+    late DebugPrintCallback originalDebugPrint;
+
+    setUp(() {
+      logs = <String?>[];
+      originalDebugPrint = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) => logs.add(message);
+    });
+
+    tearDown(() => debugPrint = originalDebugPrint);
+
+    final DateTime at =
+        DateTime.fromMicrosecondsSinceEpoch(1761560130123456, isUtc: true);
+
+    test('trackEvent sends a DateTime as ISO text and drops NaN', () async {
+      MethodCall? capturedCall;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall call) async {
+        capturedCall = call;
+        return <String, Object?>{'success': true};
+      });
+
+      await sdk.trackEvent('checkout', <String, Object?>{
+        'at': at,
+        'price': double.nan,
+        'gone': null,
+        'items': <Object?>[at, null, double.infinity],
+        'keep': 'yes',
+      });
+
+      expect(capturedCall?.method, 'trackEvent');
+      expect(capturedCall?.arguments, <String, Object?>{
+        'eventName': 'checkout',
+        'parameters': <String, Object?>{
+          'at': '2025-10-27T10:15:30.123Z',
+          'items': <Object?>['2025-10-27T10:15:30.123Z', null, null],
+          'keep': 'yes',
+        },
+      });
+      expect(logs, hasLength(1));
+      expect(logs.single, contains('checkout'));
+      expect(logs.single, contains('price'));
+    });
+
+    test('trackEventBatch converts each event and still sends them all',
+        () async {
+      MethodCall? capturedCall;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall call) async {
+        capturedCall = call;
+        return <String, Object?>{'success': true};
+      });
+
+      final bool ok = await sdk.trackEventBatch(<BatchEvent>[
+        BatchEvent('first', parameters: <String, Object?>{'at': at}),
+        const BatchEvent('second',
+            parameters: <String, Object?>{'n': double.infinity, 'k': 1}),
+      ]);
+
+      expect(ok, isTrue);
+      expect(capturedCall?.arguments, <String, Object?>{
+        'events': <Object?>[
+          <String, Object?>{
+            'eventName': 'first',
+            'parameters': <String, Object?>{'at': '2025-10-27T10:15:30.123Z'},
+          },
+          <String, Object?>{
+            'eventName': 'second',
+            'parameters': <String, Object?>{'k': 1},
+          },
+        ],
+      });
+      expect(logs, hasLength(1));
+      expect(logs.single, contains('second'));
+      expect(logs.single, contains('n'));
+    });
   });
 }
