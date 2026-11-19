@@ -1,3 +1,16 @@
+## 1.0.9 - Notification open tracking
+
+### Added
+- Taps on Linkzly push notifications are reported to Linkzly automatically, so the campaign page shows how many devices opened a campaign. No code is needed in the app: the plugin hooks the notification handling on iOS before the app starts and forwards `onNewIntent` on Android, so the tap that launches the app is counted too, even though `configure` runs later from Dart. Only notifications that carry Linkzly's `campaign_id` or `flow_delivery_id` are reported, nothing is sent while analytics consent is denied, and your app's own tap handling runs exactly as before.
+- `trackNotificationOpen(data, {actionId})` reports a tap yourself, for notifications your app draws itself or Android action buttons. A tap reported both automatically and by this call within 5 seconds is counted once.
+- To turn the automatic reporting off, set the Info.plist Boolean `LinkzlyAutoTrackNotificationOpens` to `NO` on iOS, and add `<meta-data android:name="com.linkzly.sdk.auto_track_notification_opens" android:value="false" />` to the app's `AndroidManifest.xml` on Android.
+
+### Changed
+- Tightened the iOS CocoaPods dependency from `LinkzlySDK ~> 1.0.8` to `~> 1.0.9`, and bumped the native Android dependency `com.github.Linkzly:linkzly-android-sdk` from 1.0.10 to 1.0.11, for notification open tracking.
+
+### Platform Support
+- Requires native iOS `LinkzlySDK` 1.0.9+ and Android `linkzly-android-sdk` 1.0.11+. Both are pinned by the plugin.
+
 ## 1.0.8 - Event property values, consent and SKAdNetwork coarse values
 
 ### Added

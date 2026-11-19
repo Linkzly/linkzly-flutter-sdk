@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
   s.dependency       'Flutter'
-  s.dependency       'LinkzlySDK', '~> 1.0.8'
+  s.dependency       'LinkzlySDK', '~> 1.0.9'
   s.platform         = :ios, '15.0'
   s.swift_version    = '5.0'
   s.frameworks       = 'Foundation', 'UIKit', 'StoreKit'

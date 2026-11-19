@@ -8,7 +8,19 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
     private let deepLinkEvents = BufferedEventSink()
     private let universalLinkEvents = BufferedEventSink()
 
+    /// Called from `LinkzlyFlutterEarlyInstall.m`'s `+load`, before `main`: starts the SDK's
+    /// automatic capture of notification taps before any plugin (Firebase Messaging, for one) or
+    /// the app's `AppDelegate` sets the notification center's delegate.
+    @objc public static func installNotificationOpenCapture() {
+        LinkzlySDK.installNotificationOpenCapture()
+    }
+
     public static func register(with registrar: FlutterPluginRegistrar) {
+        // Already done by `+load`; repeating it is harmless and covers a build where that file is
+        // not linked. Dart cannot call configure before this point, so the tap that launched the
+        // app would otherwise be missed.
+        installNotificationOpenCapture()
+
         let instance = LinkzlyFlutterSdkPlugin()
 
         let methodChannel = FlutterMethodChannel(
@@ -73,6 +85,13 @@ public class LinkzlyFlutterSdkPlugin: NSObject, FlutterPlugin {
             }
             LinkzlySDK.trackEvent(eventName, parameters: args["parameters"] as? [String: Any])
             result(successMap())
+
+        case "trackNotificationOpen":
+            // Fire and forget: the native call returns nothing and never throws.
+            let data = args["data"] as? [String: Any] ?? [:]
+            let actionId = (args["actionId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            LinkzlySDK.trackNotificationOpen(userInfo: data, actionIdentifier: actionId)
+            result(nil)
 
         case "trackPurchase":
             LinkzlySDK.trackPurchase(parameters: args["parameters"] as? [String: Any] ?? [:]) { response in

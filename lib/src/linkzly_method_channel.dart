@@ -83,6 +83,34 @@ class LinkzlyMethodChannel {
     );
   }
 
+  /// Sends a tapped notification's data to the native SDK. Never throws: any
+  /// failure on the channel or on the native side is swallowed (and logged in
+  /// debug builds), because the app calls this from its tap handler.
+  Future<void> trackNotificationOpen(
+    Map<String, dynamic> data, {
+    String? actionId,
+  }) async {
+    try {
+      await _methodChannel.invokeMethod<Object?>(
+        'trackNotificationOpen',
+        <String, Object?>{
+          // The native SDKs read only string values, so only those are sent.
+          // Keys stay as they came.
+          'data': <String, String>{
+            for (final MapEntry<String, dynamic> entry in data.entries)
+              if (entry.value is String) entry.key: entry.value as String,
+          },
+          // No action (null or empty) crosses the channel as null.
+          'actionId': (actionId == null || actionId.isEmpty) ? null : actionId,
+        },
+      );
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Linkzly: trackNotificationOpen failed: $error');
+      }
+    }
+  }
+
   Future<bool> trackPurchase(Map<String, Object?> parameters) async {
     final Map<Object?, Object?>? result =
         await _methodChannel.invokeMapMethod<Object?, Object?>(

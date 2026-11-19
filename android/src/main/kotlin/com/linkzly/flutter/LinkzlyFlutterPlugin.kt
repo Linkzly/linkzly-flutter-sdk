@@ -108,6 +108,7 @@ class LinkzlyFlutterPlugin :
                 "trackInstall" -> LinkzlySDK.trackInstall { resolveDeepLink(result, it) }
                 "trackOpen" -> LinkzlySDK.trackOpen { resolveDeepLink(result, it) }
                 "trackEvent" -> trackEvent(call, result)
+                "trackNotificationOpen" -> trackNotificationOpen(call, result)
                 "trackPurchase" -> trackPurchase(call, result)
                 "trackRefund" -> trackRefund(call, result)
                 "trackEventBatch" -> trackEventBatch(call, result)
@@ -202,6 +203,13 @@ class LinkzlyFlutterPlugin :
     }
 
     override fun onNewIntent(intent: Intent): Boolean {
+        // A notification tap that reaches the running activity arrives only here; the SDK's lifecycle
+        // callbacks never see it. This reports it and changes nothing about the deep link handling below.
+        try {
+            LinkzlySDK.handleNotificationIntent(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("LinkzlyFlutter", "handleNotificationIntent failed: ${e.message}")
+        }
         val data = LinkzlySDK.handleAppLink(intent) ?: return false
         emitDeepLink(data.toFlutterMap())
         return true
@@ -277,6 +285,19 @@ class LinkzlyFlutterPlugin :
             call.mapArgument("parameters")
         )
         result.success(successMap())
+    }
+
+    private fun trackNotificationOpen(call: MethodCall, result: MethodChannel.Result) {
+        // Fire and forget: the native call never throws, and neither does this.
+        try {
+            // A typed map: a bare null would be ambiguous with the Intent overload.
+            val data: Map<String, Any?> = call.argument<Map<String, Any?>>("data").orEmpty()
+            val actionId: String? = call.argument<String>("actionId")?.takeIf { it.isNotEmpty() }
+            LinkzlySDK.trackNotificationOpen(data, actionId)
+        } catch (e: Exception) {
+            android.util.Log.e("LinkzlyFlutter", "trackNotificationOpen failed: ${e.message}")
+        }
+        result.success(null)
     }
 
     private fun trackPurchase(call: MethodCall, result: MethodChannel.Result) {
