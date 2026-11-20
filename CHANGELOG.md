@@ -1,3 +1,12 @@
+## 1.0.10 - Notification opens from any notification library
+
+### Changed
+- `trackNotificationOpen(data, {actionId})` now takes the push's data as your tap handler received it and finds Linkzly's fields in it: a `RemoteMessage`'s `data` map, a `flutter_local_notifications` payload (a JSON string), or any map or JSON string that holds the data, also one or two levels down under `data`, `userInfo`, `notification` or `payload`. Pass it unchanged: a copy cut down to the fields your app routes on can lose `campaign_id`. A map without Linkzly's fields is sent as before.
+- The parameter type is now `Object?` (declared `covariant`, so a fake or adapter that implements `Linkzly` with the earlier `Map<String, dynamic>` parameter still compiles). Maps with keys that are not strings, and maps that cannot be read, no longer affect the call; it still never throws.
+
+### Platform Support
+- Unchanged: native iOS `LinkzlySDK` 1.0.9+ and Android `linkzly-android-sdk` 1.0.11+, pinned by the plugin.
+
 ## 1.0.9 - Notification open tracking
 
 ### Added

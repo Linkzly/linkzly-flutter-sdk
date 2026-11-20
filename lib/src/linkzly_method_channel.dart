@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -83,31 +85,55 @@ class LinkzlyMethodChannel {
     );
   }
 
-  /// Sends a tapped notification's data to the native SDK. Never throws: any
-  /// failure on the channel or on the native side is swallowed (and logged in
-  /// debug builds), because the app calls this from its tap handler.
+  /// Sends a tapped notification's data to the native SDK, found in [data] by
+  /// [findNotificationData]. Never throws: any failure is swallowed (and logged
+  /// in debug builds), because the app calls this from its tap handler.
   Future<void> trackNotificationOpen(
-    Map<String, dynamic> data, {
+    Object? data, {
     String? actionId,
   }) async {
+    final Map<String, String> strings;
+    try {
+      final Map<String, Object?>? found = findNotificationData(data);
+      if (found == null) return;
+      // The native SDKs read only string values, so only those are sent. Keys
+      // stay as they came.
+      strings = <String, String>{
+        for (final MapEntry<String, Object?> entry in found.entries)
+          if (entry.value is String) entry.key: entry.value as String,
+      };
+    } catch (error) {
+      _logNotificationOpenFailure(error);
+      return;
+    }
+    // No action (null or empty) crosses the channel as null.
+    final String? action =
+        (actionId == null || actionId.isEmpty) ? null : actionId;
+    await _sendNotificationOpen(strings, action);
+  }
+
+  Future<void> _sendNotificationOpen(
+    Map<String, String> data,
+    String? actionId,
+  ) async {
     try {
       await _methodChannel.invokeMethod<Object?>(
         'trackNotificationOpen',
-        <String, Object?>{
-          // The native SDKs read only string values, so only those are sent.
-          // Keys stay as they came.
-          'data': <String, String>{
-            for (final MapEntry<String, dynamic> entry in data.entries)
-              if (entry.value is String) entry.key: entry.value as String,
-          },
-          // No action (null or empty) crosses the channel as null.
-          'actionId': (actionId == null || actionId.isEmpty) ? null : actionId,
-        },
+        <String, Object?>{'data': data, 'actionId': actionId},
       );
     } catch (error) {
-      if (kDebugMode) {
-        debugPrint('Linkzly: trackNotificationOpen failed: $error');
-      }
+      _logNotificationOpenFailure(error);
+    }
+  }
+
+  /// Logs in debug builds only. Printing can throw too (an app object's
+  /// `toString`, an app's own `debugPrint`), so nothing here escapes.
+  void _logNotificationOpenFailure(Object error) {
+    if (!kDebugMode) return;
+    try {
+      debugPrint('Linkzly: trackNotificationOpen failed: $error');
+    } catch (_) {
+      // Nothing to do: an open report must not break the app's tap handler.
     }
   }
 
@@ -447,3 +473,74 @@ class LinkzlyMethodChannel {
   static bool _success(Map<Object?, Object?>? result) =>
       result?['success'] as bool? ?? false;
 }
+
+/// Where notification libraries put a push's data in what they hand a tap
+/// handler.
+const List<String> _notificationDataKeys = <String>[
+  'data',
+  'userInfo',
+  'notification',
+  'payload',
+];
+
+/// How far below the given map a push's data is looked for.
+const int _notificationDataDepth = 2;
+
+/// Finds a tapped push's own data in what a tap handler was given: the map
+/// itself, or a map one or two levels down under `data`, `userInfo`,
+/// `notification` or `payload`. A JSON string counts as the map it encodes, so
+/// a `flutter_local_notifications` payload holding the message data works.
+/// Returns the first map, top first, that holds `campaign_id` or
+/// `flow_delivery_id`; the given map when none does; null when it is not a map.
+Map<String, Object?>? findNotificationData(Object? input) {
+  final Map<String, Object?>? top = _asMap(input);
+  if (top == null) return null;
+  return _findLinkzlyData(top, 0) ?? top;
+}
+
+Map<String, Object?>? _findLinkzlyData(
+  Map<String, Object?> candidate,
+  int depth,
+) {
+  if (_isLinkzlyId(candidate['campaign_id']) ||
+      _isLinkzlyId(candidate['flow_delivery_id'])) {
+    return candidate;
+  }
+  if (depth == _notificationDataDepth) return null;
+  for (final String key in _notificationDataKeys) {
+    final Map<String, Object?>? child = _asMap(candidate[key]);
+    final Map<String, Object?>? found =
+        child == null ? null : _findLinkzlyData(child, depth + 1);
+    if (found != null) return found;
+  }
+  return null;
+}
+
+/// The String-keyed entries of the map a value is, or of the one a JSON string
+/// encodes; null otherwise. Other keys are left out before anything is copied,
+/// so no key of the app's own is hashed.
+Map<String, Object?>? _asMap(Object? value) {
+  Object? candidate = value;
+  if (candidate is String) {
+    final String text = candidate.trim();
+    if (!text.startsWith('{')) return null;
+    try {
+      candidate = jsonDecode(text);
+    } on FormatException {
+      return null;
+    }
+  }
+  if (candidate is! Map) return null;
+  try {
+    return <String, Object?>{
+      for (final MapEntry<Object?, Object?> entry in candidate.entries)
+        if (entry.key is String) entry.key as String: entry.value,
+    };
+  } catch (_) {
+    // A map that cannot be read counts as not a map, so it is skipped and the
+    // search goes on.
+    return null;
+  }
+}
+
+bool _isLinkzlyId(Object? value) => value is String && value.trim().isNotEmpty;

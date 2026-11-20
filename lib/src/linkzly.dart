@@ -54,8 +54,10 @@ class Linkzly {
       _channel.trackRefund(parameters);
 
   /// Report that the user tapped a Linkzly push notification. Call it from
-  /// your notification tap handler, after [configure], with the `data` map of
-  /// the tapped `firebase_messaging` `RemoteMessage`:
+  /// your notification tap handler, after [configure], with what your
+  /// notification library handed that handler, unchanged: the `data` map of a
+  /// `firebase_messaging` `RemoteMessage`, a `flutter_local_notifications`
+  /// payload (a JSON string of the message data), or any map holding the data:
   ///
   /// ```dart
   /// FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -63,19 +65,27 @@ class Linkzly {
   /// });
   /// ```
   ///
-  /// Keys stay as the server sent them (`campaign_id`, `flow_id`,
-  /// `flow_delivery_id`, plus your own). Only string values are sent on; any
-  /// other value is left out. A notification that carries neither `campaign_id`
-  /// nor `flow_delivery_id` is ignored by the native SDK.
+  /// The push's own data is found in [data]: the map itself, or one or two
+  /// levels down under `data`, `userInfo`, `notification` or `payload`, a JSON
+  /// string counting as the map it encodes. Pass it unchanged: a copy cut down
+  /// to the fields your app routes on can lose `campaign_id`. Keys stay as the
+  /// server sent them (`campaign_id`, `flow_id`, `flow_delivery_id`, plus your
+  /// own). Only string values are sent on; any other value is left out.
+  /// Anything that is not a map, or a JSON string of one, does nothing. A
+  /// notification that carries neither `campaign_id` nor `flow_delivery_id` is
+  /// ignored by the native SDK.
   ///
   /// [actionId] is the id of the action button the user tapped. Leave it null
   /// (an empty string counts as null) for a tap on the notification itself.
   ///
   /// Fire and forget: the future completes with nothing, never throws, and
   /// does not say whether a report was sent. Consent, the single retry and the
-  /// call-before-[configure] no-op are handled by the native SDK.
+  /// call-before-[configure] no-op are handled by the native SDK: configure the
+  /// SDK before reading the tap that launched the app.
+  // `covariant` keeps compiling an app's fake or adapter that implements
+  // [Linkzly] and declares the earlier `Map<String, dynamic>` parameter.
   Future<void> trackNotificationOpen(
-    Map<String, dynamic> data, {
+    covariant Object? data, {
     String? actionId,
   }) =>
       _channel.trackNotificationOpen(data, actionId: actionId);
