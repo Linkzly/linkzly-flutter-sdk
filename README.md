@@ -319,7 +319,7 @@ Every method is called as `Linkzly.instance.<method>(...)`.
 - Affiliate: `captureAffiliateAttribution`, `getAffiliateAttribution`, `getAffiliateClickId`, `hasAffiliateAttribution`, `clearAffiliateAttribution`
 - Tracking permission and SKAdNetwork (iOS only): `requestTrackingPermission`, `getAttStatus`, `getIdfa`, `updateConversionValue`
 - Advertising tracking: `setAdvertisingTrackingEnabled`, `isAdvertisingTrackingEnabled`
-- Push: `setNotificationToken`, `getNotificationToken`, `hasNotificationToken`, `clearNotificationToken`, `initializePush`, `disablePush`
+- Push: `setNotificationToken`, `getNotificationToken`, `hasNotificationToken`, `clearNotificationToken`, `initializePush`, `disablePush`, `trackNotificationOpen`
 - Privacy: `setTrackingEnabled`, `isTrackingEnabled`. `setTrackingEnabled(false)` stops custom events, purchases and refunds, and on Android `trackEventBatch`; on iOS `trackEventBatch` is not stopped. It does not stop the install, open and session-end events the SDK sends itself, and on Android it has no effect before `configure`. The SDK sends nothing before `configure`: an app that must send nothing before the user consents delays `configure` until the user has consented, and uses `setTrackingEnabled(false)` afterwards to stop events, purchases and refunds.
 - Gaming: `configureGamingTracking`, `identifyGamingPlayer`, `trackGamingEvent`, `flushGamingEvents`, `startGamingSession`, `endGamingSession`, `setGamingAttribution`, `clearGamingAttribution`, `getGamingStatus`, `resetGamingTracking`
 - Debug (fail with `DEBUG_ONLY` on iOS; debuggable builds only on Android): `debugSetBatchingStrategy`, `debugSetBatchSize`, `debugSetFlushInterval`, `debugResetConfig`, `debugGetConfig`
@@ -423,6 +423,47 @@ If your app also uses another push provider for its own delivery, you do **not**
 | Broadcasts arrive only after a restart | Firebase was not live when the token registered, so the topic was stored but the subscribe failed. Move `Firebase.initializeApp()` earlier, or call `initializePush()` once Firebase is ready. |
 | Notifications stop after a "disable" | `disablePush()` only lasts the session. Use `clearNotificationToken()`. |
 | Wrong app receives a campaign | The device is still on the legacy shared topic — dropped on the next successful registration against a current native SDK. |
+
+### Push notification opens
+
+Linkzly counts a device as having opened a push campaign when its user taps the notification. The campaign page in the Linkzly console shows the number. This needs Flutter SDK 1.0.9 or later.
+
+**Automatic.** You write no code.
+
+- **Android:** taps on notifications that Android shows itself from an FCM notification message (the system tray, with the app in the background or closed), including the tap that launches the app. The plugin also forwards taps that reach an already-running activity.
+- **iOS:** every tap that goes through your app's `UNUserNotificationCenter` delegate, including local notifications your app schedules itself and the tap that launches the app. Your own handler still runs as before. The plugin sets this up before the app starts.
+
+Only notifications sent by Linkzly count. Their data carries `campaign_id`, or `flow_delivery_id` for triggered pushes. Nothing is sent while analytics consent is denied (`setConsent`). A tap that arrives before `configure` is held in memory and sent after it.
+
+**Explicit call.** On Android, call `Linkzly.instance.trackNotificationOpen(data, actionId: ...)` from your own tap handler when your app draws the notification itself, and for action buttons. That means a notification your code shows while the app is in the foreground (for example with `flutter_local_notifications`), and any action button. You rarely need it on iOS. Pass the notification's data and, for a button, its id.
+
+In this example the app put the FCM message's data into the notification's payload as JSON when it showed the notification:
+
+```dart
+import 'dart:convert';
+
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+void onNotificationTap(NotificationResponse response) {
+  final String? payload = response.payload;
+  if (payload == null) return;
+  final Map<String, dynamic> data = jsonDecode(payload) as Map<String, dynamic>;
+  Linkzly.instance.trackNotificationOpen(data, actionId: response.actionId);
+}
+```
+
+Pass `onNotificationTap` as `onDidReceiveNotificationResponse` when you initialize the plugin. Only string values in `data` are sent on. A tap that reaches the SDK twice within 5 seconds, once automatically and once through this call, is counted once, so it is safe to call on every tap. The call never throws, and it does nothing before `configure`.
+
+**Turning automatic capture off.** Do it in the app's native project. The explicit call still works.
+
+- **iOS:** add the Boolean `LinkzlyAutoTrackNotificationOpens` with the value `NO` to `ios/Runner/Info.plist`.
+- **Android:** add this to the `<application>` element of `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<meta-data
+    android:name="com.linkzly.sdk.auto_track_notification_opens"
+    android:value="false" />
+```
 
 ## Deep Link Streams
 
